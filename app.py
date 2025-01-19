@@ -5,57 +5,55 @@ from tensorflow.keras.utils import pad_sequences
 import numpy as np
 import json
 
-# Load the tokenizer from the JSON file
-try:
-    with open("tokenizer.json", "r") as json_file:
-        tokenizer_json = json.load(json_file)
-    tokenizer = tokenizer_from_json(tokenizer_json)
-except Exception as e:
-    raise Exception(f"Error loading tokenizer: {str(e)}")
-
-# Load the trained model
-try:
-    model = load_model("model.keras")
-except Exception as e:
-    raise Exception(f"Error loading model: {str(e)}")
-
-# Define the labels for predictions
-labels = ['AI-Generated', 'Human-Written', 'Plagiarized']
-
 # Initialize Flask app
 app = Flask(__name__)
 
+# Define labels and constants
+labels = ['AI-Generated', 'Human-Written', 'Plagiarized']
+MAX_SEQUENCE_LENGTH = 200
+
+# Lazy load model and tokenizer
+model = None
+tokenizer = None
+
+def load_resources():
+    global model, tokenizer
+    if model is None:
+        model = load_model("model.keras")
+    if tokenizer is None:
+        with open("tokenizer.json", "r") as json_file:
+            tokenizer_json = json.load(json_file)
+            tokenizer = tokenizer_from_json(tokenizer_json)
+
 @app.route("/")
 def home():
-    return "This is the home page for the Text Detection API!"
+    return "Welcome to the Text Detection API!"
 
 @app.route("/detect", methods=["POST"])
 def detect():
     try:
+        # Load resources only when required
+        load_resources()
+
         # Parse the JSON input
         data = request.get_json()
-        if data is None or "text" not in data:
-            return jsonify({"Error": "Invalid input. Please provide data in the format {'text': 'your text here'}."}), 400
-
-        text = data["text"].strip()
+        text = data.get("text", "").strip()
         if not text:
-            return jsonify({"Error": "Input text is empty. Please provide valid text for detection."}), 400
+            return jsonify({"Error": "Invalid input or empty text. Please provide valid text."}), 400
 
         # Tokenize and pad the input text
         tokenized_sequence = tokenizer.texts_to_sequences([text])
-        text_sequences = pad_sequences(tokenized_sequence, maxlen=200, padding='post')
+        text_sequences = pad_sequences(tokenized_sequence, maxlen=MAX_SEQUENCE_LENGTH, padding='post')
 
-        # Predict using the loaded model
-        predictions = model.predict(text_sequences)
+        # Predict using the model
+        predictions = model.predict(text_sequences, verbose=0)
         predicted_label = labels[np.argmax(predictions)]
 
-        # Return the result as JSON
-        json_data = {"Output": predicted_label, "Confidence": float(np.max(predictions))}
-        return jsonify(json_data)
+        # Return the result
+        return jsonify({"Output": predicted_label, "Confidence": float(np.max(predictions))})
 
     except Exception as e:
         return jsonify({"Error": f"An error occurred: {str(e)}"}), 500
 
-
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=False, port=5000)
