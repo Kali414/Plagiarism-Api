@@ -15,7 +15,7 @@ except Exception as e:
 
 # Load the trained model
 try:
-    model = load_model("model2.keras")
+    model = load_model("model.keras")
 except Exception as e:
     raise Exception(f"Error loading model: {str(e)}")
 
