@@ -4,6 +4,8 @@ from tensorflow.keras.preprocessing.text import tokenizer_from_json
 from tensorflow.keras.utils import pad_sequences
 import numpy as np
 import json
+import PyPDF2
+import io
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -12,18 +14,11 @@ app = Flask(__name__)
 labels = ['AI-Generated', 'Human-Written', 'Plagiarized']
 MAX_SEQUENCE_LENGTH = 200
 
-# Lazy load model and tokenizer
-model = None
-tokenizer = None
-
-def load_resources():
-    global model, tokenizer
-    if model is None:
-        model = load_model("model.keras")
-    if tokenizer is None:
-        with open("tokenizer.json", "r") as json_file:
-            tokenizer_json = json.load(json_file)
-            tokenizer = tokenizer_from_json(tokenizer_json)
+# Load model and tokenizer once at startup
+model = load_model("model2.keras")
+with open("tokenizer.json", "r") as json_file:
+    tokenizer_json = json.load(json_file)
+    tokenizer = tokenizer_from_json(tokenizer_json)
 
 @app.route("/")
 def home():
@@ -32,14 +27,20 @@ def home():
 @app.route("/detect", methods=["POST"])
 def detect():
     try:
-        # Load resources only when required
-        load_resources()
+        # Case 1: If file is uploaded (PDF)
+        if "file" in request.files:
+            file = request.files["file"]
+            pdf_reader = PyPDF2.PdfReader(io.BytesIO(file.read()))
+            text = ""
+            for page in pdf_reader.pages:
+                text += page.extract_text() or ""
+        else:
+            # Case 2: If JSON body contains text
+            data = request.get_json()
+            text = data.get("text", "").strip()
 
-        # Parse the JSON input
-        data = request.get_json()
-        text = data.get("text", "").strip()
         if not text:
-            return jsonify({"Error": "Invalid input or empty text. Please provide valid text."}), 400
+            return jsonify({"Error": "Invalid input or empty text. Provide text or upload a PDF."}), 400
 
         # Tokenize and pad the input text
         tokenized_sequence = tokenizer.texts_to_sequences([text])
