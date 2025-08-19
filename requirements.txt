@@ -6,3 +6,4 @@ pandas
 numpy
 scikit-learn
 tensorflow-cpu
+pypdf2
