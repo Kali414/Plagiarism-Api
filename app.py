@@ -15,7 +15,7 @@ labels = ['AI-Generated', 'Human-Written', 'Plagiarized']
 MAX_SEQUENCE_LENGTH = 200
 
 # Load model and tokenizer once at startup
-model = load_model("model2.keras")
+model = load_model("model.keras")
 with open("tokenizer.json", "r") as json_file:
     tokenizer_json = json.load(json_file)
     tokenizer = tokenizer_from_json(tokenizer_json)
